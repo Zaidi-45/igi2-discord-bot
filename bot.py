@@ -1,6 +1,8 @@
 import socket
 import os
 import requests
+import time
+from datetime import datetime, timezone
 
 # --- CONFIGURATION ---
 SERVERS = [
@@ -11,9 +13,16 @@ SERVERS = [
 FIRE_THRESHOLD = 8
 COOLDOWN_THRESHOLD = 3
 
-# State Files (so the bot remembers what it did)
+# State Files
 MSG_ID_FILE = 'discord_msg_id.txt'
 ALERT_STATE_FILE = 'discord_alert_state.txt'
+
+# --- MAP IMAGES (Add your own links here!) ---
+MAP_IMAGES = {
+    "sandstorm": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/sandstorm.png", 
+    "redstone": "https://filker.weebly.com/uploads/3/9/4/3/39435999/2235265_orig.png", 
+    "default": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/default.png"
+}
 
 def read_state(filepath, default=""):
     if os.path.exists(filepath):
@@ -45,6 +54,7 @@ def parse_igi2_response(raw_data):
         if key.startswith("player_"):
             pid = key.split("_")[1]
             p_stats = {
+                "id": pid,
                 "name": name,
                 "frags": data_map.get(f"frags_{pid}", "0"),
                 "deaths": data_map.get(f"deaths_{pid}", "0"),
@@ -96,29 +106,45 @@ def run_discord_bot():
     elif current_players <= COOLDOWN_THRESHOLD and alert_triggered:
         write_state(ALERT_STATE_FILE, "False")
 
-    # --- 2. THE LIVE DASHBOARD ---
+    # --- 2. THE LIVE DASHBOARD (ULTIMATE EDITION) ---
     if srv.get('status') == 'Offline':
         embed = {"title": f"🔴 {srv.get('hostname', 'Server')} is OFFLINE", "color": 16711680}
     else:
-        def format_team(players):
-            if not players: return "*NO AGENTS DEPLOYED*"
-            lines = ["NAME             K/D    PING", "-"*28]
+        # ASCII Table Formatter
+        def format_team(players, team_name, score):
+            if not players: return f"```text\n[{team_name}] {score} Score\n* NO AGENTS DEPLOYED *\n```"
+            
+            lines = [
+                f"[{team_name}] {score} Score",
+                "+----+-----------------+---------+-------+",
+                "| ID | Name            | K/D     | Ping  |",
+                "+----+-----------------+---------+-------+"
+            ]
             for p in players:
-                name = str(p.get('name', 'Unknown'))[:14].ljust(15)
-                kd = f"{p.get('frags', 0)}/{p.get('deaths', 0)}".ljust(6)
-                ping = str(p.get('ping', 'N/A')).ljust(4)
-                lines.append(f"{name} {kd} {ping}")
+                pid = str(p.get('id', '0')).ljust(2)
+                # Keep name at 13 chars max to preserve table borders
+                name = f"'{str(p.get('name', 'Unknown'))[:13]}'".ljust(15)
+                kd = f"{p.get('frags', 0)}/{p.get('deaths', 0)}".ljust(7)
+                ping = f"{p.get('ping', '0')}ms".ljust(5)
+                lines.append(f"| {pid} | {name} | {kd} | {ping} |")
+            
+            lines.append("+----+-----------------+---------+-------+")
             return "```text\n" + "\n".join(lines) + "\n```"
 
+        map_name_lower = srv.get('mapname', '').lower()
+        map_img = MAP_IMAGES.get(map_name_lower, MAP_IMAGES['default'])
+
         embed = {
-            "title": f"🟢 {srv.get('hostname')} is ONLINE",
-            "color": 2278750,
-            "description": f"**Map:** {srv.get('mapname')} | **Time:** {srv.get('timeleft')} | **Players:** {srv.get('players_count')}\n**Score:** IGI ({srv.get('score_igi')}) - Conspiracy ({srv.get('score_con')})",
+            "title": f"**{srv.get('hostname')}**",
+            "color": 2278750, # Tactical Green Line
+            "description": f"**SERVER CONFIG**\n```text\n> Map Name : '{srv.get('mapname')}'\n> Map Time : {srv.get('timeleft')}\n> Players  : {srv.get('players_count')}\n> Status   : ONLINE\n```\n**IN-GAME PLAYERS**",
             "fields": [
-                {"name": "🟦 IGI OPERATIVES", "value": format_team(srv.get('team_igi_players', [])), "inline": False},
-                {"name": "🟥 CONSPIRACY", "value": format_team(srv.get('team_con_players', [])), "inline": False}
+                {"name": "", "value": format_team(srv.get('team_igi_players', []), "IGI OPERATIVE", srv.get('score_igi')), "inline": False},
+                {"name": "v/s", "value": format_team(srv.get('team_con_players', []), "CONSPIRACY", srv.get('score_con')), "inline": False}
             ],
-            "footer": {"text": "Live Uplink • Auto-updates every 5 mins"}
+            "image": {"url": map_img},
+            "timestamp": datetime.now(timezone.utc).isoformat(), # Discord converts this to user's local time automatically
+            "footer": {"text": "DON CLAN Satellite Uplink"}
         }
 
     payload = {"embeds": [embed]}
