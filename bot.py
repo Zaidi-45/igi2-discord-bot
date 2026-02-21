@@ -127,24 +127,26 @@ def run_discord_bot():
     if srv.get('status') == 'Offline':
         embed = {"title": f"🔴 {srv.get('hostname', 'Server')} is OFFLINE", "color": 16711680}
     else:
+        # ASCII Table Formatter (COMPACT MOBILE-SAFE EDITION)
         def format_team(players, team_name, score):
             if not players: return f"```text\n[{team_name}] {score} Score\n* NO AGENTS DEPLOYED *\n```"
             
             lines = [
                 f"[{team_name}] {score} Score",
-                "+----+----------------------+---------+-------+",
-                "| ID | Name                 | K/D     | Ping  |",
-                "+----+----------------------+---------+-------+"
+                "ID | Name            | K/D    | Ping",
+                "---+-----------------+--------+-----"
             ]
             for p in players:
                 pid = str(p.get('id', '0')).ljust(2)
-                name_str = str(p.get('name', 'Unknown'))[:20] 
-                name = f"'{name_str}'".ljust(22)
-                kd = f"{p.get('frags', 0)}/{p.get('deaths', 0)}".ljust(7)
-                ping = f"{p.get('ping', '0')}ms".ljust(5)
-                lines.append(f"| {pid} | {name} | {kd} | {ping} |")
+                
+                # Truncate at 15 chars (Fits 'IGI 2 Pakistani' perfectly)
+                name_str = str(p.get('name', 'Unknown'))[:15] 
+                name = name_str.ljust(15)
+                
+                kd = f"{p.get('frags', 0)}/{p.get('deaths', 0)}".ljust(6)
+                ping = f"{p.get('ping', '0')}ms".ljust(4)
+                lines.append(f"{pid} | {name} | {kd} | {ping}")
             
-            lines.append("+----+----------------------+---------+-------+")
             return "```text\n" + "\n".join(lines) + "\n```"
 
         map_name_lower = srv.get('mapname', '').lower()
