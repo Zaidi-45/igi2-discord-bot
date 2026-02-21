@@ -1,7 +1,6 @@
 import socket
 import os
 import requests
-import time
 from datetime import datetime, timezone
 
 # --- CONFIGURATION ---
@@ -9,19 +8,23 @@ SERVERS = [
     {"ip": "16.24.95.100", "port": 26001, "name": "DON CLAN IGI2"}
 ]
 
-# Discord Hype Thresholds
-FIRE_THRESHOLD = 8
-COOLDOWN_THRESHOLD = 3
+# Discord URLs from GitHub Secrets
+STATUS_WEBHOOK = os.getenv('STATUS_WEBHOOK')
+HYPE_WEBHOOK = os.getenv('HYPE_WEBHOOK')
 
 # State Files
 MSG_ID_FILE = 'discord_msg_id.txt'
 ALERT_STATE_FILE = 'discord_alert_state.txt'
 
-# --- MAP IMAGES (Add your own links here!) ---
+# --- MAP IMAGES ---
 MAP_IMAGES = {
-    "sandstorm": "https://upload.wikimedia.org/wikipedia/en/thumb/5/5a/IGI_2_Covert_Strike.jpg/220px-IGI_2_Covert_Strike.jpg", # Replace with actual Sandstorm pic
-    "pribois villa": "https://upload.wikimedia.org/wikipedia/en/thumb/5/5a/IGI_2_Covert_Strike.jpg/220px-IGI_2_Covert_Strike.jpg", # Replace with actual Priboi pic
-    "default": "https://upload.wikimedia.org/wikipedia/en/thumb/5/5a/IGI_2_Covert_Strike.jpg/220px-IGI_2_Covert_Strike.jpg"
+    "sandstorm": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/sandstorm.png", 
+    "redstone": "https://filker.weebly.com/uploads/3/9/4/3/39435999/2235265_orig.png", 
+    "timberland": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7201890_orig.png", 
+    "forestraid": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7950290_orig.png", 
+    "chinese temple": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7534426_orig.png", 
+    "dark hills": "https://iili.io/f4w2IJR.png", 
+    "default": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/default.png"
 }
 
 def read_state(filepath, default=""):
@@ -84,9 +87,8 @@ def check_server():
     return parsed_data
 
 def run_discord_bot():
-    WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK')
-    if not WEBHOOK_URL:
-        print("Error: DISCORD_WEBHOOK secret is missing.")
+    if not STATUS_WEBHOOK or not HYPE_WEBHOOK:
+        print("Error: Webhook secrets are missing.")
         return
 
     srv = check_server()
@@ -96,39 +98,53 @@ def run_discord_bot():
     except:
         current_players = 0
 
-    # --- 1. THE HYPE ALERT ---
-    alert_triggered = read_state(ALERT_STATE_FILE, "False") == "True"
+    # --- 1. THE MULTI-TIER HYPE ENGINE (Uses HYPE_WEBHOOK) ---
+    try:
+        current_state = int(read_state(ALERT_STATE_FILE, "0"))
+    except ValueError:
+        current_state = 0
 
-    if current_players >= FIRE_THRESHOLD and not alert_triggered:
-        hype_msg = f"🔥 @here **SERVER IS ON FIRE!** We have {current_players} operatives deployed. Join to ignite more! 🔥"
-        requests.post(WEBHOOK_URL, json={"content": hype_msg})
-        write_state(ALERT_STATE_FILE, "True")
-    elif current_players <= COOLDOWN_THRESHOLD and alert_triggered:
-        write_state(ALERT_STATE_FILE, "False")
+    new_state = current_state
+    hype_msg = ""
 
-    # --- 2. THE LIVE DASHBOARD (ULTIMATE EDITION) ---
+    if current_players >= 24 and current_state < 3:
+        hype_msg = f"🚨 @here **MAXIMUM CARNAGE!** {current_players}/32 operatives! The server is practically full! Get in! 🚨"
+        new_state = 3
+    elif current_players >= 16 and current_state < 2:
+        hype_msg = f"💥 @here **WARZONE DEPLOYED!** Server is half-full with {current_players}/32 operatives. Drop in now! 💥"
+        new_state = 2
+    elif current_players >= 8 and current_state < 1:
+        hype_msg = f"🔥 @here **SERVER IS ON FIRE!** We have {current_players}/32 operatives deployed. Join to ignite more! 🔥"
+        new_state = 1
+    elif current_players <= 3:
+        new_state = 0
+
+    if hype_msg:
+        requests.post(HYPE_WEBHOOK, json={"content": hype_msg})
+        write_state(ALERT_STATE_FILE, str(new_state))
+
+    # --- 2. THE LIVE DASHBOARD (Uses STATUS_WEBHOOK) ---
     if srv.get('status') == 'Offline':
         embed = {"title": f"🔴 {srv.get('hostname', 'Server')} is OFFLINE", "color": 16711680}
     else:
-        # ASCII Table Formatter
         def format_team(players, team_name, score):
             if not players: return f"```text\n[{team_name}] {score} Score\n* NO AGENTS DEPLOYED *\n```"
             
             lines = [
                 f"[{team_name}] {score} Score",
-                "+----+-----------------+---------+-------+",
-                "| ID | Name            | K/D     | Ping  |",
-                "+----+-----------------+---------+-------+"
+                "+----+----------------------+---------+-------+",
+                "| ID | Name                 | K/D     | Ping  |",
+                "+----+----------------------+---------+-------+"
             ]
             for p in players:
                 pid = str(p.get('id', '0')).ljust(2)
-                # Keep name at 13 chars max to preserve table borders
-                name = f"'{str(p.get('name', 'Unknown'))[:13]}'".ljust(15)
+                name_str = str(p.get('name', 'Unknown'))[:20] 
+                name = f"'{name_str}'".ljust(22)
                 kd = f"{p.get('frags', 0)}/{p.get('deaths', 0)}".ljust(7)
                 ping = f"{p.get('ping', '0')}ms".ljust(5)
                 lines.append(f"| {pid} | {name} | {kd} | {ping} |")
             
-            lines.append("+----+-----------------+---------+-------+")
+            lines.append("+----+----------------------+---------+-------+")
             return "```text\n" + "\n".join(lines) + "\n```"
 
         map_name_lower = srv.get('mapname', '').lower()
@@ -136,14 +152,14 @@ def run_discord_bot():
 
         embed = {
             "title": f"**{srv.get('hostname')}**",
-            "color": 2278750, # Tactical Green Line
+            "color": 2278750,
             "description": f"**SERVER CONFIG**\n```text\n> Map Name : '{srv.get('mapname')}'\n> Map Time : {srv.get('timeleft')}\n> Players  : {srv.get('players_count')}\n> Status   : ONLINE\n```\n**IN-GAME PLAYERS**",
             "fields": [
                 {"name": "", "value": format_team(srv.get('team_igi_players', []), "IGI OPERATIVE", srv.get('score_igi')), "inline": False},
                 {"name": "v/s", "value": format_team(srv.get('team_con_players', []), "CONSPIRACY", srv.get('score_con')), "inline": False}
             ],
             "image": {"url": map_img},
-            "timestamp": datetime.now(timezone.utc).isoformat(), # Discord converts this to user's local time automatically
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "footer": {"text": "DON CLAN Satellite Uplink"}
         }
 
@@ -151,12 +167,12 @@ def run_discord_bot():
     msg_id = read_state(MSG_ID_FILE)
 
     if msg_id:
-        res = requests.patch(f"{WEBHOOK_URL}/messages/{msg_id}", json=payload)
+        res = requests.patch(f"{STATUS_WEBHOOK}/messages/{msg_id}", json=payload)
         if res.status_code == 404:
-            msg_id = "" # Message deleted, reset
+            msg_id = "" # Reset if deleted
 
     if not msg_id:
-        res = requests.post(f"{WEBHOOK_URL}?wait=true", json=payload)
+        res = requests.post(f"{STATUS_WEBHOOK}?wait=true", json=payload)
         if res.status_code in (200, 201):
             write_state(MSG_ID_FILE, res.json().get('id'))
 
