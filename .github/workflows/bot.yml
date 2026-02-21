@@ -2,7 +2,7 @@ name: Discord Bot Updater
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Runs every 5 minutes
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -25,13 +27,15 @@ jobs:
 
       - name: Run Discord Bot
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          STATUS_WEBHOOK: ${{ secrets.STATUS_WEBHOOK }}
+          HYPE_WEBHOOK: ${{ secrets.HYPE_WEBHOOK }}
         run: python bot.py
 
-      - name: Save State Files (Prevents spam)
+      - name: Force Save State Files
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add discord_msg_id.txt discord_alert_state.txt || true
           git commit -m "Auto-update Discord state files" || true
+          git pull --rebase || true
           git push
