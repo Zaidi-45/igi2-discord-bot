@@ -21,6 +21,9 @@ ALERT_STATE_FILE = 'discord_alert_state.txt'
 MAP_IMAGES = {
     "sandstorm": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/sandstorm.png", 
     "redstone": "https://filker.weebly.com/uploads/3/9/4/3/39435999/2235265_orig.png", 
+    "timberland": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7201890_orig.png", 
+    "forestraid": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7950290_orig.png", 
+    "chinese temple": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7534426_orig.png", 
     "default": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/default.png"
 }
 
