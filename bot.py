@@ -24,6 +24,7 @@ MAP_IMAGES = {
     "timberland": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7201890_orig.png", 
     "forestraid": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7950290_orig.png", 
     "chinese temple": "https://filker.weebly.com/uploads/3/9/4/3/39435999/7534426_orig.png", 
+    "dark hills": "https://iili.io/f4w2IJR.png", 
     "default": "https://raw.githubusercontent.com/Zaidi-45/igi2-status/refs/heads/main/default.png"
 }
 
