@@ -117,10 +117,14 @@ def run_discord_bot():
         hype_msg = f"🔥 @here **SERVER IS ON FIRE!** We have {current_players}/32 operatives deployed. Join to ignite more! 🔥"
         new_state = 1
     elif current_players <= 3:
-        new_state = 0
+        new_state = 0 # Disarm the bot for the next wave
 
+    # Execute the webhook if a threshold was crossed
     if hype_msg:
         requests.post(HYPE_WEBHOOK, json={"content": hype_msg})
+        
+    # ALWAYS save the state if it changed (Fixes the reset bug)
+    if new_state != current_state:
         write_state(ALERT_STATE_FILE, str(new_state))
 
     # --- 2. THE LIVE DASHBOARD (Uses STATUS_WEBHOOK) ---
